@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIS Project Scoping Canvas</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #18bc9c;
+            --light-bg: #ecf0f1;
+            --border: #bdc3c7;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 20px; display: flex; gap: 20px;
+            background-color: #f8f9fa; height: 100vh; box-sizing: border-box;
+        }
+        h1, h2, h3, h4 { color: var(--primary); margin-bottom: 10px; }
+        
+        /* Form Section */
+        .scoping-form {
+            flex: 1; background: white; padding: 25px; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-y: auto;
+        }
+        .form-group { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .form-group:last-child { border-bottom: none; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: var(--primary); }
+        
+        input[type="text"], textarea, select {
+            width: 100%; padding: 10px; border: 1px solid var(--border);
+            border-radius: 4px; box-sizing: border-box; margin-bottom: 8px;
+        }
+        
+        .custom-input { display: none; background-color: #fdfefe; border-left: 3px solid var(--secondary); }
+        
+        /* Toggle Switch UI */
+        .toggle-container {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 15px;
+            background: var(--light-bg); padding: 10px; border-radius: 6px;
+        }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--primary); transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--secondary); }
+        input:checked + .slider:before { transform: translateX(26px); }
+        
+        /* Data Options */
+        .data-options label { display: block; margin-bottom: 8px; font-weight: normal; }
+        .paid-data { display: none; color: #e67e22; }
+        .paid-data.visible { display: block; }
+        .badge { font-size: 0.8em; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
+        .badge-free { background: #d5f5e3; color: #1e8449; }
+        .badge-paid { background: #fdebd0; color: #d35400; }
+
+        /* Map UI */
+        #map-container { display: none; margin-top: 10px; }
+        #map { height: 250px; width: 100%; border-radius: 4px; border: 1px solid var(--border); z-index: 1; }
+        .map-instructions { font-size: 0.85em; color: #7f8c8d; margin-bottom: 5px; }
+        #map-snapshot-container { display: none; margin-top: 10px; text-align: center; }
+        #map-snapshot { max-width: 100%; border: 1px solid #ccc; border-radius: 4px; }
+
+        /* Risk Matrix Grid */
+        .risk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        /* Output/Preview Section */
+        .output-panel { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+        .canvas-preview {
+            background: white; padding: 40px; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-y: auto; flex-grow: 1;
+            font-family: "Calibri", "Arial", sans-serif; line-height: 1.6;
+        }
+        .copy-btn {
+            background-color: var(--secondary); color: white; border: none; padding: 15px;
+            font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s;
+        }
+        .copy-btn:hover { background-color: #128f76; }
+
+        /* Word Table Styling */
+        table.word-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+        table.word-table th, table.word-table td { border: 1px solid #bdc3c7; padding: 8px; text-align: left; }
+        table.word-table th { background-color: #ecf0f1; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+    <div class="scoping-form">
+        <h2>GIS Project Scoping Form</h2>
+        
+        <div class="form-group">
+            <label>Project Title</label>
+            <input type="text" id="inp-title" placeholder="e.g., Regional Deforestation Assessment" oninput="updateCanvas()">
+        </div>
+
+        <div class="form-group">
+            <label>1. Primary Goal & Objective</label>
+            <select id="inp-goal-select" onchange="handleSelect('inp-goal-select', 'inp-goal-custom')">
+                <option value="Marine Environmental Monitoring.">Marine Environmental Monitoring</option>
+                <option value="Analyze forest loss and calibrate fire detection hotspots.">Fire Detection & Burn Area Mapping</option>
+                <option value="Urban planning and infrastructure suitability analysis.">Urban Planning & Infrastructure Suitability</option>
+                <option value="Agricultural monitoring and crop yield estimation.">Agricultural Monitoring & Yield Estimation</option>
+                <option value="Demographic analysis and socio-economic spatial profiling.">Demographic & Socio-economic Profiling</option>
+                <option value="Develop a spatial simulation and digital twin for land governance.">Land Governance & Digital Twin Simulation</option>
+                <option value="Evaluate D-MRV platforms for carbon credit validation.">Nature Tech & Carbon D-MRV Benchmark</option>
+                <option value="other">Other (Specify below)...</option>
+            </select>
+            <input type="text" id="inp-goal-custom" class="custom-input" placeholder="Describe your custom goal..." oninput="updateCanvas()">
+        </div>
+
+        <div class="form-group">
+            <label>2. Area of Interest (AOI)</label>
+            <div class="toggle-container">
+                <label class="switch">
+                    <input type="checkbox" id="aoi-toggle" onchange="toggleMap()">
+                    <span class="slider"></span>
+                </label>
+                <span>Define AOI on Map</span>
+            </div>
+            <div id="map-container">
+                <div class="map-instructions">Click and drag on the map to draw a bounding box. A snapshot and country identification will be generated automatically.</div>
+                <div id="map"></div>
+                <input type="text" id="inp-aoi-country" placeholder="Identified Country..." readonly style="margin-top: 8px; background: #e8f8f5; font-weight: bold;">
+                <input type="text" id="inp-aoi-bounds" placeholder="Bounds coordinates..." readonly style="background: #f4f6f6; font-size: 0.85em;">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>3. Methodology (In Scope)</label>
+            <select id="inp-method-template" onchange="applyMethodTemplate()">
+                <option value="">-- Choose a starting template or type freely --</option>
+                <option value="rs_cloud">Remote Sensing: Cloud Masking & Zonal Stats</option>
+                <option value="data_prep">Data Engineering: COG Conversion Pipeline</option>
+                <option value="scripting">Automation: Python QGIS Notebooks</option>
+            </select>
+            <textarea id="inp-method" rows="4" oninput="updateCanvas()" placeholder="Step-by-step methodology..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>4. Expected Output</label>
+            <select id="inp-output-select" onchange="handleSelect('inp-output-select', 'inp-output-custom')">
+                <option value="WEBGIS Integration">WEBGIS Integration</option>
+                <option value="Static Maps / Printed Atlas">Static Maps / Printed Atlas</option>
+                <option value="Styled QGIS Project (.qml) and Jupyter Notebooks">QGIS Project & Jupyter Scripts</option>
+                <option value="Cloud Optimized GeoTIFFs (COG) hosted on server">Cloud Optimized GeoTIFFs (COG)</option>
+                <option value="other">Other (Specify below)...</option>
+            </select>
+            <input type="text" id="inp-output-custom" class="custom-input" placeholder="Define expected output..." oninput="updateCanvas()">
+        </div>
+
+        <div class="form-group">
+            <label>5. Data Strategy & Sources</label>
+            <div class="toggle-container">
+                <label class="switch">
+                    <input type="checkbox" id="pricing-toggle" onchange="togglePaidData()">
+                    <span class="slider"></span>
+                </label>
+                <span id="toggle-label">Free & Open Only</span>
+            </div>
+            
+            <div class="data-options" id="data-checkboxes">
+                <label><input type="checkbox" value="Sentinel Imagery (1/2/3)" checked onchange="updateCanvas()"> Sentinel Imagery <span class="badge badge-free">Free/Open</span></label>
+                <label><input type="checkbox" value="Copernicus Land/Marine/Atmosphere Services" onchange="updateCanvas()"> Copernicus Services <span class="badge badge-free">Free/Open</span></label>
+                <label><input type="checkbox" value="MODIS / FIRMS / VIIRS Fire Data" onchange="updateCanvas()"> MODIS / FIRMS / VIIRS <span class="badge badge-free">Free/Open</span></label>
+                <label><input type="checkbox" value="SRTM / Copernicus DEM" onchange="updateCanvas()"> Global DEM (SRTM/Copernicus) <span class="badge badge-free">Free/Open</span></label>
+                <label><input type="checkbox" value="OpenStreetMap Vectors" onchange="updateCanvas()"> OpenStreetMap <span class="badge badge-free">ODbL</span></label>
+                
+                <label class="paid-data"><input type="checkbox" value="Planet High-Res Daily Imagery" onchange="updateCanvas()"> Planet High-Res Imagery <span class="badge badge-paid">Proprietary</span></label>
+                <label class="paid-data"><input type="checkbox" value="Maxar / Airbus Satellite Tasking" onchange="updateCanvas()"> Maxar / Airbus Imagery <span class="badge badge-paid">Proprietary</span></label>
+                <label class="paid-data"><input type="checkbox" value="ESRI Living Atlas Premium" onchange="updateCanvas()"> ESRI Living Atlas <span class="badge badge-paid">Licensed</span></label>
+            </div>
+            <input type="text" id="inp-data-custom" placeholder="Add custom source (e.g., Local Gov Shapefile)" oninput="updateCanvas()" style="margin-top:8px;">
+        </div>
+
+        <div class="form-group">
+            <label>6. Risk Management & Switching Options</label>
+            <div class="risk-grid">
+                <div>
+                    <label style="font-size: 0.85em;">Data Risks</label>
+                    <select id="risk-data" onchange="updateCanvas()">
+                        <option value="none">-- None --</option>
+                        <option value="accuracy">Poor Data Accuracy</option>
+                        <option value="completeness">Incomplete Datasets</option>
+                        <option value="currency">Outdated Information</option>
+                        <option value="licensing">Strict Licensing Constraints</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.85em;">Method Risks</label>
+                    <select id="risk-method" onchange="updateCanvas()">
+                        <option value="none">-- None --</option>
+                        <option value="scale">Wrong Spatial Scale</option>
+                        <option value="complex">Over-complex Analysis</option>
+                        <option value="blackbox">Black-box AI Tools</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.85em;">Operational Risks</label>
+                    <select id="risk-op" onchange="updateCanvas()">
+                        <option value="none">-- None --</option>
+                        <option value="hardware">Hardware / Compute Limits</option>
+                        <option value="skills">Lack of specific Team Skills</option>
+                        <option value="qa">Insufficient Time for QA</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.85em;">Stakeholder Risks</label>
+                    <select id="risk-stake" onchange="updateCanvas()">
+                        <option value="none">-- None --</option>
+                        <option value="expectations">Misaligned Expectations</option>
+                        <option value="cartography">Poor Cartographic Communication</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>7. Project Approvals (Add Custom Roles)</label>
+            <input type="text" id="inp-approval-custom" placeholder="e.g., Client Stakeholder, Lead Geomatician" oninput="updateCanvas()">
+        </div>
+    </div>
+
+    <div class="output-panel">
+        <button class="copy-btn" onclick="copyToWord()">📋 Copy to Word (.docx)</button>
+        
+        <div class="canvas-preview" id="word-template-area">
+            <h1>Project Management Brief</h1>
+            
+            <h2>1. Project Overview</h2>
+            <h3>1.1 Project Title</h3>
+            <p id="out-title">[Project Title]</p>
+            
+            <h3>1.2 Project Goals and Objectives</h3>
+            <p id="out-goal">[Goal Statement]</p>
+
+            <h3>1.3 Area of Interest (AOI)</h3>
+            <p id="out-aoi-text">Not specified.</p>
+            <div id="map-snapshot-container">
+                <img id="map-snapshot" src="" alt="Map AOI Snapshot">
+            </div>
+
+            <h2>2. Project Scope</h2>
+            <h3>2.1 Methodology (In Scope)</h3>
+            <p id="out-method">[Methodology details]</p>
+
+            <h3>2.2 Expected Deliverables</h3>
+            <p id="out-output">[Expected Output]</p>
+
+            <h2>3. Project Resources</h2>
+            <h3>3.1 Selected Data Stack</h3>
+            <ul id="out-data">
+                <li>Sentinel Imagery (Free/Open)</li>
+            </ul>
+
+            <h2>4. Risk Management</h2>
+            <h3>4.1 Risk Register</h3>
+            <div id="out-risk-table-container">
+                <p>No major risks identified.</p>
+            </div>
+            
+            <h3>4.2 Recommended Switch Options</h3>
+            <ul id="out-risk-switches">
+                <li>Proceed with baseline methodology.</li>
+            </ul>
+
+            <h2>5. Project Approval</h2>
+            <p>____________________________ Project Manager</p>
+            <p id="out-approval-role">____________________________ Technical Lead</p>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Dynamic Select Logic ---
+        function handleSelect(selectId, inputId) {
+            const select = document.getElementById(selectId);
+            const input = document.getElementById(inputId);
+            if (select.value === 'other') {
+                input.style.display = 'block';
+                input.focus();
+            } else {
+                input.style.display = 'none';
+            }
+            updateCanvas();
+        }
+
+        // --- 2. Methodology Templates ---
+        function applyMethodTemplate() {
+            const sel = document.getElementById('inp-method-template').value;
+            const text = document.getElementById('inp-method');
+            if (sel === 'rs_cloud') {
+                text.value = "1. Query ImageCollection in Google Earth Engine.\n2. Apply QA cloud masking function.\n3. Calculate NDVI/Indices.\n4. Execute zonal statistics across administrative boundaries.";
+            } else if (sel === 'data_prep') {
+                text.value = "1. Download raw raster datasets.\n2. Process via Python scripting.\n3. Execute GDAL commands to build overviews and translate to Cloud Optimized GeoTIFF (COG).\n4. Host on virtual server for web display.";
+            } else if (sel === 'scripting') {
+                text.value = "1. Setup Jupyter Notebook plugin within QGIS environment.\n2. Connect via API to spatial database.\n3. Automate layer styling application (.qml).\n4. Export batch maps.";
+            } else { text.value = ""; }
+            updateCanvas();
+        }
+
+        // --- 3. Toggle Free/Paid Data ---
+        function togglePaidData() {
+            const isPaidIncluded = document.getElementById('pricing-toggle').checked;
+            const paidElements = document.querySelectorAll('.paid-data');
+            const label = document.getElementById('toggle-label');
+            
+            paidElements.forEach(el => {
+                if (isPaidIncluded) el.classList.add('visible');
+                else { el.classList.remove('visible'); el.querySelector('input').checked = false; }
+            });
+            label.innerText = isPaidIncluded ? "Including Paid Sources" : "Free & Open Only";
+            updateCanvas();
+        }
+
+        // --- 4. Map, AOI, Geocoding & Screen Capture Logic ---
+        let map;
+        let drawnRectangle;
+        let point1, point2;
+
+        function toggleMap() {
+            const isChecked = document.getElementById('aoi-toggle').checked;
+            const container = document.getElementById('map-container');
+            const snapContainer = document.getElementById('map-snapshot-container');
+            
+            if (isChecked) {
+                container.style.display = 'block';
+                if (!map) initMap();
+            } else {
+                container.style.display = 'none';
+                snapContainer.style.display = 'none';
+                document.getElementById('inp-aoi-bounds').value = "";
+                document.getElementById('inp-aoi-country').value = "";
+                document.getElementById('out-aoi-text').innerText = "Not specified.";
+                if(drawnRectangle) { map.removeLayer(drawnRectangle); drawnRectangle = null; }
+            }
+        }
+
+        function initMap() {
+            map = L.map('map').setView([20, 0], 2);
+            // useCORS is required for html2canvas to capture the tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                crossOrigin: true 
+            }).addTo(map);
+
+            map.on('mousedown', function(e) {
+                map.dragging.disable();
+                point1 = e.latlng;
+                if(drawnRectangle) map.removeLayer(drawnRectangle);
+                drawnRectangle = L.rectangle([point1, point1], {color: "#18bc9c", weight: 2}).addTo(map);
+            });
+
+            map.on('mousemove', function(e) {
+                if (point1 && drawnRectangle) {
+                    point2 = e.latlng;
+                    drawnRectangle.setBounds([point1, point2]);
+                }
+            });
+
+            map.on('mouseup', function(e) {
+                map.dragging.enable();
+                if(point1 && point2) {
+                    const bounds = drawnRectangle.getBounds();
+                    const center = bounds.getCenter();
+                    
+                    const n = bounds.getNorth().toFixed(4);
+                    const s = bounds.getSouth().toFixed(4);
+                    const e_coord = bounds.getEast().toFixed(4);
+                    const w = bounds.getWest().toFixed(4);
+                    const boundsText = `BBox: North ${n}, South ${s}, East ${e_coord}, West ${w}`;
+                    
+                    document.getElementById('inp-aoi-bounds').value = boundsText;
+                    document.getElementById('out-aoi-text').innerText = `Coordinates: ${boundsText}`;
+
+                    // 1. Reverse Geocode to get Country
+                    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${center.lat}&lon=${center.lng}&format=json`)
+                        .then(response => response.json())
+                        .then(data => {
+                            const country = data.address && data.address.country ? data.address.country : "International Waters / Unknown";
+                            document.getElementById('inp-aoi-country').value = `Country: ${country}`;
+                            document.getElementById('out-aoi-text').innerText = `Location: ${country} | ${boundsText}`;
+                        })
+                        .catch(err => console.error("Geocoding error", err));
+
+                    // 2. Capture Map Screenshot
+                    setTimeout(() => {
+                        html2canvas(document.getElementById('map'), { useCORS: true }).then(canvas => {
+                            const imgData = canvas.toDataURL('image/png');
+                            document.getElementById('map-snapshot').src = imgData;
+                            document.getElementById('map-snapshot-container').style.display = 'block';
+                        });
+                    }, 500); // slight delay to ensure tiles render
+                }
+                point1 = null; point2 = null;
+            });
+        }
+
+        // --- 5. Generate Risk Matrix & Switches ---
+        const riskDataDB = {
+            'accuracy': { title: 'Poor Data Accuracy', likelihood: 'Medium', impact: 'High', mitigation: 'Ground-truth validation with field data.' },
+            'completeness': { title: 'Incomplete Datasets', likelihood: 'High', impact: 'Medium', mitigation: 'Interpolation or merge with secondary sources.' },
+            'currency': { title: 'Outdated Information', likelihood: 'Medium', impact: 'Medium', mitigation: 'Acquire recent satellite imagery.' },
+            'licensing': { title: 'Strict Licensing Constraints', likelihood: 'Low', impact: 'High', mitigation: 'Legal review before commercial publication.' },
+            'scale': { title: 'Wrong Spatial Scale', likelihood: 'High', impact: 'Medium', mitigation: 'Resample rasters to match lowest resolution.' },
+            'complex': { title: 'Over-complex Analysis', likelihood: 'Medium', impact: 'High', mitigation: 'Break workflow into modular Jupyter notebooks.' },
+            'blackbox': { title: 'Black-box AI Tools', likelihood: 'Medium', impact: 'High', mitigation: 'Favor transparent spatial statistics over opaque deep learning.' },
+            'hardware': { title: 'Hardware / Compute Limits', likelihood: 'High', impact: 'High', mitigation: 'Shift processing to Cloud (GEE / Virtual Servers) or use COGs.' },
+            'skills': { title: 'Lack of Team Skills', likelihood: 'Medium', impact: 'High', mitigation: 'Simplify methodology to standard QGIS plugins.' },
+            'qa': { title: 'Insufficient Time for QA', likelihood: 'High', impact: 'Medium', mitigation: 'Automate topological error checking in PostGIS.' },
+            'expectations': { title: 'Misaligned Expectations', likelihood: 'Medium', impact: 'High', mitigation: 'Provide early prototype maps to stakeholders.' },
+            'cartography': { title: 'Poor Cartographic Comm.', likelihood: 'Medium', impact: 'Medium', mitigation: 'Use standardized styling templates (.qml).' }
+        };
+
+        const switchOptionsDB = {
+            'accuracy': 'Drop low-value analytical outputs that rely heavily on the inaccurate layer.',
+            'completeness': 'Change data source to a global open alternative (e.g., OpenStreetMap).',
+            'licensing': 'Switch to completely Open Data (ODbL / CC-BY) to avoid legal bottlenecks.',
+            'scale': 'Reduce spatial extent (AOI) to allow processing of higher-resolution data.',
+            'hardware': 'Simplify method from complex vector operations to raster-based suitability models.',
+            'skills': 'Switch from Python scripting to built-in QGIS graphical modeler.',
+            'qa': 'Reduce project scope to focus on a smaller, highly accurate pilot area.',
+            'expectations': 'Pivot deliverable from a static report to an interactive WebGIS dashboard for clarity.'
+        };
+
+        function buildRiskRegister() {
+            const selects = ['risk-data', 'risk-method', 'risk-op', 'risk-stake'];
+            const activeRisks = [];
+            
+            selects.forEach(id => {
+                const val = document.getElementById(id).value;
+                if(val !== 'none') activeRisks.push(val);
+            });
+
+            const tableContainer = document.getElementById('out-risk-table-container');
+            const switchList = document.getElementById('out-risk-switches');
+
+            if (activeRisks.length === 0) {
+                tableContainer.innerHTML = '<p>No major risks identified.</p>';
+                switchList.innerHTML = '<li>Proceed with baseline methodology.</li>';
+                return;
+            }
+
+            // Build Table
+            let tableHTML = `
+                <table class="word-table">
+                    <thead>
+                        <tr>
+                            <th>Risk Description</th>
+                            <th>Likelihood</th>
+                            <th>Impact</th>
+                            <th>Mitigation Strategy</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            let switchesHTML = '';
+
+            activeRisks.forEach(riskKey => {
+                const r = riskDataDB[riskKey];
+                tableHTML += `<tr>
+                    <td><strong>${r.title}</strong></td>
+                    <td>${r.likelihood}</td>
+                    <td>${r.impact}</td>
+                    <td>${r.mitigation}</td>
+                </tr>`;
+
+                if(switchOptionsDB[riskKey]) {
+                    switchesHTML += `<li><strong>Switch Option:</strong> ${switchOptionsDB[riskKey]}</li>`;
+                }
+            });
+
+            tableHTML += `</tbody></table>`;
+            tableContainer.innerHTML = tableHTML;
+            switchList.innerHTML = switchesHTML || '<li>Consider reducing scope if multiple risks compound.</li>';
+        }
+
+        // --- 6. Master Update Canvas Function ---
+        function updateCanvas() {
+            document.getElementById('out-title').innerText = document.getElementById('inp-title').value || "[Project Title]";
+            
+            const goalSel = document.getElementById('inp-goal-select').value;
+            document.getElementById('out-goal').innerText = goalSel === 'other' ? document.getElementById('inp-goal-custom').value || "[Custom Goal]" : goalSel;
+
+            document.getElementById('out-method').innerText = document.getElementById('inp-method').value.replace(/\n/g, '\n') || "[Methodology details]";
+            
+            const outSel = document.getElementById('inp-output-select').value;
+            document.getElementById('out-output').innerText = outSel === 'other' ? document.getElementById('inp-output-custom').value || "[Custom Output]" : outSel;
+
+            const customAppr = document.getElementById('inp-approval-custom').value;
+            document.getElementById('out-approval-role').innerText = customAppr ? "____________________________ " + customAppr : "____________________________ Technical Lead";
+
+            // Data
+            const checkboxes = document.querySelectorAll('#data-checkboxes input:checked');
+            const customData = document.getElementById('inp-data-custom').value;
+            const dataList = document.getElementById('out-data');
+            dataList.innerHTML = ''; 
+            
+            let hasData = false;
+            checkboxes.forEach(box => {
+                const li = document.createElement('li'); li.innerText = box.value; dataList.appendChild(li); hasData = true;
+            });
+            if (customData.trim() !== "") {
+                const li = document.createElement('li'); li.innerText = customData + " (Custom)"; dataList.appendChild(li); hasData = true;
+            }
+            if (!hasData) dataList.innerHTML = '<li>None selected</li>';
+
+            // Risk Matrix Update
+            buildRiskRegister();
+        }
+
+        // --- 7. Export to Word ---
+        async function copyToWord() {
+            const methodEl = document.getElementById('out-method');
+            const originalText = methodEl.innerText;
+            methodEl.innerHTML = originalText.replace(/\n/g, '<br>');
+
+            const content = document.getElementById('word-template-area').innerHTML;
+            
+            try {
+                const blob = new Blob([content], { type: 'text/html' });
+                const clipboardItem = new ClipboardItem({ 'text/html': blob });
+                await navigator.clipboard.write([clipboardItem]);
+                
+                const btn = document.querySelector('.copy-btn');
+                btn.innerText = "✅ Copied! Paste into Word";
+                btn.style.backgroundColor = "#27ae60";
+                
+                setTimeout(() => {
+                    btn.innerText = "📋 Copy to Word (.docx)";
+                    btn.style.backgroundColor = "var(--secondary)";
+                }, 3000);
+            } catch (err) {
+                alert("Failed to copy. Please select the text manually and copy.");
+                console.error(err);
+            } finally {
+                methodEl.innerText = originalText;
+            }
+        }
+
+        window.onload = updateCanvas;
+    </script>
+</body>
+</html>
