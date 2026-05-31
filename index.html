@@ -136,8 +136,12 @@
             <select id="inp-method-template" onchange="applyMethodTemplate()">
                 <option value="">-- Choose a starting template or type freely --</option>
                 <option value="rs_cloud">Remote Sensing: Cloud Masking & Zonal Stats</option>
-                <option value="data_prep">Data Engineering: COG Conversion Pipeline</option>
+                <option value="data_prep">Data Engineering: Raster Preparation Pipeline</option>
                 <option value="scripting">Automation: Python QGIS Notebooks</option>
+                <option value="spatial_analysis">Spatial Analysis: Overlay, Buffering & Suitability</option>
+                <option value="field_mapping">Field Mapping: Survey Collection & Validation</option>
+                <option value="webgis">Web GIS: Interactive Mapping & Dashboard Delivery</option>
+                <option value="pgis">PGIS / Participatory GIS Approach</option>
             </select>
             <textarea id="inp-method" rows="4" oninput="updateCanvas()" placeholder="Step-by-step methodology..."></textarea>
         </div>
@@ -217,6 +221,35 @@
                         <option value="cartography">Poor Cartographic Communication</option>
                     </select>
                 </div>
+            </div>
+            <div class="toggle-container">
+                <label class="switch">
+                    <input type="checkbox" id="custom-risk-toggle" onchange="toggleCustomRisk()">
+                    <span class="slider"></span>
+                </label>
+                <span>Add Custom Risk</span>
+            </div>
+            <div id="custom-risk-container" style="display:none; margin-top:10px;">
+                <input type="text" id="custom-risk-title" placeholder="Custom risk description" oninput="updateCanvas()">
+                <div class="risk-grid">
+                    <div>
+                        <label style="font-size: 0.85em;">Likelihood</label>
+                        <select id="custom-risk-likelihood" onchange="updateCanvas()">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85em;">Impact</label>
+                        <select id="custom-risk-impact" onchange="updateCanvas()">
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High" selected>High</option>
+                        </select>
+                    </div>
+                </div>
+                <textarea id="custom-risk-mitigation" rows="3" placeholder="Custom mitigation strategy" oninput="updateCanvas()"></textarea>
             </div>
         </div>
 
@@ -427,6 +460,18 @@
             'expectations': 'Pivot deliverable from a static report to an interactive WebGIS dashboard for clarity.'
         };
 
+        function toggleCustomRisk() {
+            const enabled = document.getElementById('custom-risk-toggle').checked;
+            document.getElementById('custom-risk-container').style.display = enabled ? 'block' : 'none';
+            if (!enabled) {
+                document.getElementById('custom-risk-title').value = '';
+                document.getElementById('custom-risk-likelihood').value = 'Medium';
+                document.getElementById('custom-risk-impact').value = 'High';
+                document.getElementById('custom-risk-mitigation').value = '';
+            }
+            updateCanvas();
+        }
+
         function buildRiskRegister() {
             const selects = ['risk-data', 'risk-method', 'risk-op', 'risk-stake'];
             const activeRisks = [];
@@ -474,6 +519,22 @@
                     switchesHTML += `<li><strong>Switch Option:</strong> ${switchOptionsDB[riskKey]}</li>`;
                 }
             });
+
+            const customRiskEnabled = document.getElementById('custom-risk-toggle').checked;
+            const customRiskTitle = document.getElementById('custom-risk-title').value.trim();
+            const customRiskLikelihood = document.getElementById('custom-risk-likelihood').value;
+            const customRiskImpact = document.getElementById('custom-risk-impact').value;
+            const customRiskMitigation = document.getElementById('custom-risk-mitigation').value.trim();
+
+            if (customRiskEnabled && customRiskTitle) {
+                tableHTML += `<tr>
+                    <td><strong>${customRiskTitle}</strong></td>
+                    <td>${customRiskLikelihood}</td>
+                    <td>${customRiskImpact}</td>
+                    <td>${customRiskMitigation || 'To be defined.'}</td>
+                </tr>`;
+                switchesHTML += `<li><strong>Custom Risk:</strong> Review mitigation and fallback actions for &quot;${customRiskTitle}&quot;.</li>`;
+            }
 
             tableHTML += `</tbody></table>`;
             tableContainer.innerHTML = tableHTML;
