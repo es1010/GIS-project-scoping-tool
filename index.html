@@ -59,6 +59,7 @@
         .badge { font-size: 0.8em; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
         .badge-free { background: #d5f5e3; color: #1e8449; }
         .badge-paid { background: #fdebd0; color: #d35400; }
+        .checkbox-group label { display: block; margin-bottom: 8px; font-weight: normal; }
 
         /* Map UI */
         #map-container { display: none; margin-top: 10px; }
@@ -77,9 +78,10 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-y: auto; flex-grow: 1;
             font-family: "Calibri", "Arial", sans-serif; line-height: 1.6;
         }
+        .action-buttons { display: flex; gap: 12px; }
         .copy-btn {
             background-color: var(--secondary); color: white; border: none; padding: 15px;
-            font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s;
+            font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; flex: 1;
         }
         .copy-btn:hover { background-color: #128f76; }
 
@@ -148,14 +150,15 @@
 
         <div class="form-group">
             <label>4. Expected Output</label>
-            <select id="inp-output-select" onchange="handleSelect('inp-output-select', 'inp-output-custom')">
-                <option value="WEBGIS Integration">WEBGIS Integration</option>
-                <option value="Static Maps / Printed Atlas">Static Maps / Printed Atlas</option>
-                <option value="Styled QGIS Project (.qml) and Jupyter Notebooks">QGIS Project & Jupyter Scripts</option>
-                <option value="Cloud Optimized GeoTIFFs (COG) hosted on server">Cloud Optimized GeoTIFFs (COG)</option>
-                <option value="other">Other (Specify below)...</option>
-            </select>
-            <input type="text" id="inp-output-custom" class="custom-input" placeholder="Define expected output..." oninput="updateCanvas()">
+            <div class="checkbox-group" id="output-checkboxes">
+                <label><input type="checkbox" value="Web GIS application / dashboard" onchange="updateCanvas()"> Web GIS application / dashboard</label>
+                <label><input type="checkbox" value="Static maps / printed atlas" onchange="updateCanvas()"> Static maps / printed atlas</label>
+                <label><input type="checkbox" value="QGIS project and processing files" onchange="updateCanvas()"> QGIS project and processing files</label>
+                <label><input type="checkbox" value="Spatial database or cleaned GIS layers" onchange="updateCanvas()"> Spatial database or cleaned GIS layers</label>
+                <label><input type="checkbox" value="Technical report / project brief" onchange="updateCanvas()"> Technical report / project brief</label>
+                <label><input type="checkbox" value="Interactive story map or participatory outputs" onchange="updateCanvas()"> Interactive story map or participatory outputs</label>
+            </div>
+            <input type="text" id="inp-output-custom" placeholder="Add custom expected output..." oninput="updateCanvas()">
         </div>
 
         <div class="form-group">
@@ -260,7 +263,10 @@
     </div>
 
     <div class="output-panel">
-        <button class="copy-btn" onclick="copyToWord()">📋 Copy to Word (.docx)</button>
+        <div class="action-buttons">
+            <button class="copy-btn" onclick="copyToWord()">📋 Copy to Word (.docx)</button>
+            <button class="copy-btn" onclick="downloadTemplateText()">⬇️ Download Template Text</button>
+        </div>
         
         <div class="canvas-preview" id="word-template-area">
             <h1>Project Management Brief</h1>
@@ -304,7 +310,8 @@
 
             <h2>5. Project Approval</h2>
             <p>____________________________ Project Manager</p>
-            <p id="out-approval-role">____________________________ Technical Lead</p>
+            <p>____________________________ Technical Lead</p>
+            <div id="out-approval-extra"></div>
         </div>
     </div>
 
@@ -550,11 +557,23 @@
 
             document.getElementById('out-method').innerText = document.getElementById('inp-method').value.replace(/\n/g, '\n') || "[Methodology details]";
             
-            const outSel = document.getElementById('inp-output-select').value;
-            document.getElementById('out-output').innerText = outSel === 'other' ? document.getElementById('inp-output-custom').value || "[Custom Output]" : outSel;
+            const outputChecks = document.querySelectorAll('#output-checkboxes input:checked');
+            const customOutput = document.getElementById('inp-output-custom').value.trim();
+            const outputs = [];
+            outputChecks.forEach(box => outputs.push(box.value));
+            if (customOutput) outputs.push(customOutput + " (Custom)");
+            document.getElementById('out-output').innerText = outputs.length ? outputs.join('; ') : "[Expected Output]";
 
-            const customAppr = document.getElementById('inp-approval-custom').value;
-            document.getElementById('out-approval-role').innerText = customAppr ? "____________________________ " + customAppr : "____________________________ Technical Lead";
+            const customAppr = document.getElementById('inp-approval-custom').value.trim();
+            const approvalExtra = document.getElementById('out-approval-extra');
+            approvalExtra.innerHTML = '';
+            if (customAppr) {
+                customAppr.split(',').map(r => r.trim()).filter(Boolean).forEach(role => {
+                    const p = document.createElement('p');
+                    p.innerText = '____________________________ ' + role;
+                    approvalExtra.appendChild(p);
+                });
+            }
 
             // Data
             const checkboxes = document.querySelectorAll('#data-checkboxes input:checked');
@@ -602,6 +621,20 @@
             } finally {
                 methodEl.innerText = originalText;
             }
+        }
+
+        function downloadTemplateText() {
+            const preview = document.getElementById('word-template-area');
+            const textContent = preview.innerText.trim();
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gis-project-template.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         window.onload = updateCanvas;
